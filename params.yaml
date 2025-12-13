@@ -1,0 +1,53 @@
+data:
+  raw: "data/raw/dataset.csv"
+  processed: "data/processed/dataset.csv"
+  split_dir: "data/split"
+
+preprocess:
+  handle_missing: true
+  remove_outliers: false
+  test_size: 0.2
+  random_state: 42
+
+encoding:
+  categorical_cols:
+    - region
+    - mark
+    - model
+    - complectation
+    - steering_wheel
+    - gear_type
+    - engine
+    - transmission
+    - characteristics
+    - color
+    - body_type_type
+    - body_type_name
+    - super_gen_name
+
+scaling:
+  numerical_cols:
+    - owners
+    - year
+    - price
+    - mileage
+    - power
+    - displacement
+    - super_gen_year_from
+    - super_gen_year_to
+
+experiments:
+  experiment_name: "car_price_prediction"
+  tracking_uri: "http://localhost:5000"
+
+models:
+  xgboost:
+    n_estimators: [50, 100, 200]
+    max_depth: [3, 6, 10]
+    learning_rate: [0.01, 0.1, 0.2]
+    random_state: 42
+
+hyperparameter_tuning:
+  max_evals: 20
+  cv_folds: 3
+  scoring: "neg_root_mean_squared_error"

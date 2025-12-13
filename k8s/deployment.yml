@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: car-prices
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: car-prices
+  template:
+    metadata:
+      labels:
+        app: car-prices
+    spec:
+      containers:
+        - name: car-prices
+          image: car_prices
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "100m"
+            limits:
+              cpu: "300m"

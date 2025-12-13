@@ -32,12 +32,12 @@ data/split/
 mlruns/
 mlartifacts/
 
-# --- Models ---
-models/
 
 # --- Experiments / Reports ---
 experiments/
-reports/
+reports/*.png
+reports/*.html
+reports/*.csv
 
 # --- Logs / Temporary files ---
 logs/

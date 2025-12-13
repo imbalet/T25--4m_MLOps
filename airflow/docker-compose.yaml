@@ -1,0 +1,96 @@
+x-airflow-common: &airflow-common
+  build:
+    context: ..
+    dockerfile: airflow/Dockerfile
+  env_file:
+    - .env
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: G0Eo-PDq-d-j9U2O7GTXowtcMXjUPQWsBfIqluhQfII=
+    AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS: "False"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ../logs:/opt/airflow/logs
+    - ../plugins:/opt/airflow/plugins
+    - ..:/opt/src
+  user: "0:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.1
+    environment:
+      MLFLOW_TRACKING_URI: http://0.0.0.0:5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlruns --host 0.0.0.0 --port 5000
+
+  airflow-init:
+    <<: *airflow-common
+    command: >-
+      bash -c "airflow db migrate &&
+      (airflow users create --username ${AIRFLOW_WWW_USER_USERNAME:-admin} --password ${AIRFLOW_WWW_USER_PASSWORD:-admin} --firstname Admin --lastname User --role Admin --email admin@example.com || true) &&
+      airflow variables set project_root /opt/airflow/project &&
+      airflow variables set python_bin python &&
+      airflow variables set eval_report_path /opt/airflow/project/reports/eval.json &&
+      airflow variables set trained_model_path /opt/airflow/project/model_store/random_forest.joblib &&
+      airflow variables set registered_model_path /opt/airflow/project/model_store/production/random_forest.joblib &&
+      airflow variables set roc_auc_threshold 0.9"
+    environment:
+      <<: *airflow-common-env
+    restart: "no"
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    environment:
+      <<: *airflow-common-env
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    environment:
+      <<: *airflow-common-env
+    ports:
+      - "8087:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    environment:
+      <<: *airflow-common-env
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-db-volume:

@@ -1,0 +1,56 @@
+stages:
+  preprocess:
+    cmd: python src/preprocess.py --config params.yaml
+    deps:
+      - src/preprocess.py
+      - data/raw/dataset.csv
+      - params.yaml
+    outs:
+      - data/processed/dataset.csv
+      - models/encoders.pkl
+      - models/scaler.pkl
+    params:
+      - preprocess
+      - encoding
+      - scaling
+
+  split:
+    cmd: python src/split_data.py --config params.yaml
+    deps:
+      - src/split_data.py
+      - data/processed/dataset.csv
+      - params.yaml
+    outs:
+      - data/split/X_train.csv
+      - data/split/X_test.csv
+      - data/split/y_train.csv
+      - data/split/y_test.csv
+    params:
+      - preprocess.test_size
+      - preprocess.random_state
+
+  train_baseline:
+    cmd: python src/train.py --config params.yaml
+    deps:
+      - src/train.py
+      - data/split/X_train.csv
+      - data/split/X_test.csv
+      - data/split/y_train.csv
+      - data/split/y_test.csv
+      - params.yaml
+    outs:
+      - models/xgboost_model.pkl
+    params:
+      - models
+
+  evaluate_baseline:
+    cmd: python src/evaluate.py --model_path models/xgboost_model.pkl --test_data data/split/X_test.csv --target_data data/split/y_test.csv --config params.yaml
+    deps:
+      - src/evaluate.py
+      - models/xgboost_model.pkl
+      - data/split/X_test.csv
+      - data/split/y_test.csv
+      - params.yaml
+    metrics:
+      - reports/eval.json:
+          cache: false
